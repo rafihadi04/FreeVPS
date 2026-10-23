@@ -8,6 +8,8 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Install & Login Tailscale secara manual
+        env:
+          TAILSCALE_AUTH_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
         run: |
           Write-Host "Mengunduh installer Tailscale..."
           Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-latest.exe" -OutFile "tailscale-setup.exe"
@@ -17,7 +19,7 @@ jobs:
           
           Write-Host "Login ke jaringan Tailscale..."
           # Menjalankan CLI Tailscale menggunakan absolute path agar tidak error
-          & "C:\Program Files\Tailscale\tailscale.exe" up --authkey="${{ secrets.TAILSCALE_AUTH_KEY }}" --hostname="github-windows-rdp"
+          & "C:\Program Files\Tailscale\tailscale.exe" up --authkey="$env:TAILSCALE_AUTH_KEY" --hostname="github-windows-rdp"
 
       - name: Konfigurasi RDP & Firewall
         env:
@@ -41,77 +43,77 @@ jobs:
           Write-Host "Password   : (Gunakan password dari secret RDP_PASSWORD)"
           Write-Host "=================================================="
 
-      - name: Auto-Setup Proxifier untuk Aplikasi Target
-        env:
-          PROXY_HOST: ${{ secrets.PROXY_HOST }}
-          PROXY_PORT: ${{ secrets.PROXY_PORT }}
-          PROXY_USER: ${{ secrets.PROXY_USER }}
-          PROXY_PASS: ${{ secrets.PROXY_PASS }}
-          TARGET_APPS: "telegram.exe; chrome.exe; bot-app.exe; msedge.exe" 
-        run: |
-          $BaseDir = "C:\Users\runneradmin\Desktop\Proxifier"
+      # - name: Auto-Setup Proxifier untuk Aplikasi Target
+      #   env:
+      #     PROXY_HOST: ${{ secrets.PROXY_HOST }}
+      #     PROXY_PORT: ${{ secrets.PROXY_PORT }}
+      #     PROXY_USER: ${{ secrets.PROXY_USER }}
+      #     PROXY_PASS: ${{ secrets.PROXY_PASS }}
+      #     TARGET_APPS: "telegram.exe; chrome.exe; bot-app.exe; msedge.exe" 
+      #   run: |
+      #     $BaseDir = "C:\Users\runneradmin\Desktop\Proxifier"
           
-          Write-Host "Mengunduh Proxifier Portable..."
-          Invoke-WebRequest -Uri "https://www.proxifier.com/download/ProxifierPE.zip" -OutFile "C:\Users\runneradmin\Desktop\ProxifierPE.zip"
-          Expand-Archive -Path "C:\Users\runneradmin\Desktop\ProxifierPE.zip" -DestinationPath $BaseDir -Force
+      #     Write-Host "Mengunduh Proxifier Portable..."
+      #     Invoke-WebRequest -Uri "https://www.proxifier.com/download/ProxifierPE.zip" -OutFile "C:\Users\runneradmin\Desktop\ProxifierPE.zip"
+      #     Expand-Archive -Path "C:\Users\runneradmin\Desktop\ProxifierPE.zip" -DestinationPath $BaseDir -Force
           
-          Write-Host "Mencari lokasi Proxifier.exe..."
-          $ExePath = (Get-ChildItem -Path $BaseDir -Filter "Proxifier.exe" -Recurse | Select-Object -First 1).FullName
+      #     Write-Host "Mencari lokasi Proxifier.exe..."
+      #     $ExePath = (Get-ChildItem -Path $BaseDir -Filter "Proxifier.exe" -Recurse | Select-Object -First 1).FullName
           
-          if (-not $ExePath) {
-              Write-Error "Proxifier.exe tidak ditemukan! Ekstraksi mungkin gagal."
-              exit 1
-          }
-          Write-Host "Ditemukan di: $ExePath"
+      #     if (-not $ExePath) {
+      #         Write-Error "Proxifier.exe tidak ditemukan! Ekstraksi mungkin gagal."
+      #         exit 1
+      #     }
+      #     Write-Host "Ditemukan di: $ExePath"
           
-          Write-Host "Membuat Profil XML Proxifier..."
-          $ProfileXML = @"
-          <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-          <ProxifierProfile version="102" platform="Windows" product_id="0" product_minver="400">
-            <Options>
-              <Resolve>
-                <AutoModeDetection>true</AutoModeDetection>
-                <ViaProxy>true</ViaProxy>
-                <ExclusionList>localhost; %ComputerName%; *.local; </ExclusionList>
-              </Resolve>
-            </Options>
-            <ProxyList>
-              <Proxy id="101" type="HTTPS">
-                <Address>$env:PROXY_HOST</Address>
-                <Port>$env:PROXY_PORT</Port>
-                <Options>48</Options>
-                <Authentication enabled="true">
-                  <Username>$env:PROXY_USER</Username>
-                  <Password>$env:PROXY_PASS</Password>
-                </Authentication>
-              </Proxy>
-            </ProxyList>
-            <ChainList />
-            <RuleList>
-              <Rule enabled="true">
-                <Name>Localhost</Name>
-                <Targets>localhost; 127.0.0.1; %ComputerName%; ::1</Targets>
-                <Action type="Direct" />
-              </Rule>
-              <Rule enabled="true">
-                <Name>Aplikasi Target Custom</Name>
-                <Applications>$env:TARGET_APPS</Applications>
-                <Action type="Proxy">101</Action>
-              </Rule>
-              <Rule enabled="true">
-                <Name>Default (Aman untuk Tailscale)</Name>
-                <Action type="Direct" />
-              </Rule>
-            </RuleList>
-          </ProxifierProfile>
-          "@
+      #     Write-Host "Membuat Profil XML Proxifier..."
+      #     $ProfileXML = @"
+      #     <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+      #     <ProxifierProfile version="102" platform="Windows" product_id="0" product_minver="400">
+      #       <Options>
+      #         <Resolve>
+      #           <AutoModeDetection>true</AutoModeDetection>
+      #           <ViaProxy>true</ViaProxy>
+      #           <ExclusionList>localhost; %ComputerName%; *.local; </ExclusionList>
+      #         </Resolve>
+      #       </Options>
+      #       <ProxyList>
+      #         <Proxy id="101" type="HTTPS">
+      #           <Address>$env:PROXY_HOST</Address>
+      #           <Port>$env:PROXY_PORT</Port>
+      #           <Options>48</Options>
+      #           <Authentication enabled="true">
+      #             <Username>$env:PROXY_USER</Username>
+      #             <Password>$env:PROXY_PASS</Password>
+      #           </Authentication>
+      #         </Proxy>
+      #       </ProxyList>
+      #       <ChainList />
+      #       <RuleList>
+      #         <Rule enabled="true">
+      #           <Name>Localhost</Name>
+      #           <Targets>localhost; 127.0.0.1; %ComputerName%; ::1</Targets>
+      #           <Action type="Direct" />
+      #         </Rule>
+      #         <Rule enabled="true">
+      #           <Name>Aplikasi Target Custom</Name>
+      #           <Applications>$env:TARGET_APPS</Applications>
+      #           <Action type="Proxy">101</Action>
+      #         </Rule>
+      #         <Rule enabled="true">
+      #           <Name>Default (Aman untuk Tailscale)</Name>
+      #           <Action type="Direct" />
+      #         </Rule>
+      #       </RuleList>
+      #     </ProxifierProfile>
+      #     "@
           
-          $ProfilePath = "$BaseDir\AutoProfile.prx"
-          Set-Content -Path $ProfilePath -Value $ProfileXML
+      #     $ProfilePath = "$BaseDir\AutoProfile.prx"
+      #     Set-Content -Path $ProfilePath -Value $ProfileXML
           
-          Write-Host "Menjalankan Proxifier secara senyap..."
-          # Menggunakan path dinamis yang ditemukan pada langkah pencarian
-          Start-Process -FilePath $ExePath -ArgumentList "`"$ProfilePath`"", "/SILENT"
+      #     Write-Host "Menjalankan Proxifier secara senyap..."
+      #     # Menggunakan path dinamis yang ditemukan pada langkah pencarian
+      #     Start-Process -FilePath $ExePath -ArgumentList "`"$ProfilePath`"", "/SILENT"
       - name: Tahan Sesi & Fitur Stop
         run: |
           # 1. Buat tombol Stop di Desktop RDP
