@@ -1,22 +1,46 @@
-services:
-  windows:
-    image: dockurr/windows
-    container_name: windows
-    environment:
-      VERSION: "11"
-      USERNAME: "MASTER"
-      PASSWORD: "admin@123"
-      RAM_SIZE: "4G"
-      CPU_CORES: "4"
-      DISK_SIZE: "64G"
-      DISK2_SIZE: "10G"
-    devices:
-      - /dev/kvm
-      - /dev/net/tun
-    cap_add:
-      - NET_ADMIN
-    ports:
-      - "8006:8006"
-      - "3389:3389/tcp"
-      - "3389:3389/udp"
-    stop_grace_period: 2m
+name: Windows RDP via Tailscale
+
+on:
+  workflow_dispatch: # Memungkinkan Anda menjalankan RDP secara manual lewat tombol
+
+jobs:
+  rdp-session:
+    runs-on: windows-latest
+    steps:
+      - name: Hubungkan ke Tailscale
+        uses: tailscale/github-action@v2
+        with:
+          authkey: ${{ secrets.TAILSCALE_AUTH_KEY }}
+          version: latest
+
+      - name: Konfigurasi RDP & Firewall
+        run: |
+          # Mengaktifkan Remote Desktop
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" -Value 0
+          Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+          Set-Service -Name TermService -StartupType Automatic
+          Start-Service TermService
+          
+          # Mengatur password untuk akun bawaan GitHub Actions
+          net user runneradmin "${{ secrets.RDP_PASSWORD }}"
+          
+      - name: Dapatkan IP Tailscale
+        run: |
+          $TailscaleIP = tailscale ip -4
+          Write-Host "=================================================="
+          Write-Host "RDP Siap Digunakan!"
+          Write-Host "IP Address : $TailscaleIP"
+          Write-Host "Username   : runneradmin"
+          Write-Host "Password   : (Gunakan password dari secret RDP_PASSWORD)"
+          Write-Host "=================================================="
+          
+      - name: Tahan Sesi RDP (Keep-Alive)
+        run: |
+          Write-Host "Sesi aktif. Menunggu batas maksimal GitHub Actions (6 Jam)..."
+          # Loop agar runner tidak mati, mengecek setiap 5 menit
+          $time = 0
+          while ($time -lt 21600) {
+            Start-Sleep -Seconds 300
+            $time += 300
+            Write-Host "Sesi masih berjalan..."
+          }
