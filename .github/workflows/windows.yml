@@ -1,7 +1,7 @@
 name: Windows RDP via Tailscale
 
 on:
-  workflow_dispatch: # Memungkinkan Anda menjalankan RDP secara manual lewat tombol
+  workflow_dispatch:
 
 jobs:
   rdp-session:
@@ -15,13 +15,10 @@ jobs:
 
       - name: Konfigurasi RDP & Firewall
         run: |
-          # Mengaktifkan Remote Desktop
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" -Value 0
           Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
           Set-Service -Name TermService -StartupType Automatic
           Start-Service TermService
-          
-          # Mengatur password untuk akun bawaan GitHub Actions
           net user runneradmin "${{ secrets.RDP_PASSWORD }}"
           
       - name: Dapatkan IP Tailscale
@@ -34,13 +31,23 @@ jobs:
           Write-Host "Password   : (Gunakan password dari secret RDP_PASSWORD)"
           Write-Host "=================================================="
           
-      - name: Tahan Sesi RDP (Keep-Alive)
+      - name: Tahan Sesi & Fitur Stop
         run: |
-          Write-Host "Sesi aktif. Menunggu batas maksimal GitHub Actions (6 Jam)..."
-          # Loop agar runner tidak mati, mengecek setiap 5 menit
+          # 1. Buat tombol Stop di Desktop RDP
+          $DesktopPath = "C:\Users\runneradmin\Desktop"
+          if (-not (Test-Path $DesktopPath)) { New-Item -ItemType Directory -Force -Path $DesktopPath }
+          $StopButton = "$DesktopPath\TUTUP_RDP.cmd"
+          Set-Content -Path $StopButton -Value "echo 1 > C:\Users\Public\stop_rdp.flag"
+          
+          Write-Host "Sesi aktif. Menunggu batas maksimal 6 jam atau sinyal berhenti..."
+          Write-Host "Untuk mematikan RDP, klik dua kali file 'TUTUP_RDP.cmd' di Desktop Windows Anda."
+          
+          # 2. Loop penahan sesi yang akan mengecek keberadaan file bendera (flag)
           $time = 0
-          while ($time -lt 21600) {
-            Start-Sleep -Seconds 300
-            $time += 300
-            Write-Host "Sesi masih berjalan..."
+          while (!(Test-Path "C:\Users\Public\stop_rdp.flag") -and ($time -lt 21600)) {
+            Start-Sleep -Seconds 30
+            $time += 30
+            if ($time % 300 -eq 0) { Write-Host "Sesi masih berjalan..." }
           }
+          
+          Write-Host "Menerima perintah berhenti. Menutup sesi RDP dan menyelesaikan GitHub Actions..."
