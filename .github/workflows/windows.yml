@@ -40,7 +40,67 @@ jobs:
           Write-Host "Username   : runneradmin"
           Write-Host "Password   : (Gunakan password dari secret RDP_PASSWORD)"
           Write-Host "=================================================="
+
+      - name: Auto-Setup Proxifier untuk Aplikasi Target
+        env:
+          PROXY_HOST: ${{ secrets.PROXY_HOST }}
+          PROXY_PORT: ${{ secrets.PROXY_PORT }}
+          PROXY_USER: ${{ secrets.PROXY_USER }}
+          PROXY_PASS: ${{ secrets.PROXY_PASS }}
+          # Ubah nama aplikasi di bawah ini sesuai dengan target Anda
+          TARGET_APPS: "telegram.exe; chrome.exe; bot-app.exe" 
+        run: |
+          Write-Host "Mengunduh Proxifier Portable..."
+          Invoke-WebRequest -Uri "https://www.proxifier.com/download/ProxifierPE.zip" -OutFile "C:\Users\runneradmin\Desktop\ProxifierPE.zip"
+          Expand-Archive -Path "C:\Users\runneradmin\Desktop\ProxifierPE.zip" -DestinationPath "C:\Users\runneradmin\Desktop\Proxifier" -Force
           
+          Write-Host "Membuat Profil XML Proxifier..."
+          # CATATAN: Pada baris <Proxy id="101" type="HTTPS">, ubah HTTPS menjadi SOCKS5 jika proxy Anda berjenis SOCKS5.
+          $ProfileXML = @"
+          <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+          <ProxifierProfile version="102" platform="Windows" product_id="0" product_minver="400">
+            <Options>
+              <Resolve>
+                <AutoModeDetection>true</AutoModeDetection>
+                <ViaProxy>true</ViaProxy>
+                <ExclusionList>localhost; %ComputerName%; *.local; </ExclusionList>
+              </Resolve>
+            </Options>
+            <ProxyList>
+              <Proxy id="101" type="HTTPS">
+                <Address>$env:PROXY_HOST</Address>
+                <Port>$env:PROXY_PORT</Port>
+                <Options>48</Options>
+                <Authentication enabled="true">
+                  <Username>$env:PROXY_USER</Username>
+                  <Password>$env:PROXY_PASS</Password>
+                </Authentication>
+              </Proxy>
+            </ProxyList>
+            <ChainList />
+            <RuleList>
+              <Rule enabled="true">
+                <Name>Localhost</Name>
+                <Targets>localhost; 127.0.0.1; %ComputerName%; ::1</Targets>
+                <Action type="Direct" />
+              </Rule>
+              <Rule enabled="true">
+                <Name>Aplikasi Target Custom</Name>
+                <Applications>$env:TARGET_APPS</Applications>
+                <Action type="Proxy">101</Action>
+              </Rule>
+              <Rule enabled="true">
+                <Name>Default (Aman untuk Tailscale)</Name>
+                <Action type="Direct" />
+              </Rule>
+            </RuleList>
+          </ProxifierProfile>
+          "@
+          
+          Set-Content -Path "C:\Users\runneradmin\Desktop\Proxifier\AutoProfile.prx" -Value $ProfileXML
+          
+          Write-Host "Menjalankan Proxifier secara senyap..."
+          Start-Process -FilePath "C:\Users\runneradmin\Desktop\Proxifier\Proxifier.exe" -ArgumentList "C:\Users\runneradmin\Desktop\Proxifier\AutoProfile.prx", "/SILENT"
       - name: Tahan Sesi & Fitur Stop
         run: |
           # 1. Buat tombol Stop di Desktop RDP
