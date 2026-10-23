@@ -29,7 +29,7 @@ jobs:
           Start-Service TermService
           
           # Menggunakan variable env bawaan PowerShell untuk membaca secret
-          net user runneradmin "$env:RDP_PASS"
+          net user runneradmin "RahasiaRDP!2026"
           
       - name: Dapatkan IP Tailscale
         run: |
