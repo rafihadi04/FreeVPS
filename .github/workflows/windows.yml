@@ -7,11 +7,17 @@ jobs:
   rdp-session:
     runs-on: windows-latest
     steps:
-      - name: Hubungkan ke Tailscale
-        uses: tailscale/github-action@v2
-        with:
-          authkey: ${{ secrets.TAILSCALE_AUTH_KEY }}
-          version: latest
+      - name: Install & Login Tailscale secara manual
+        run: |
+          Write-Host "Mengunduh installer Tailscale..."
+          Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-latest.exe" -OutFile "tailscale-setup.exe"
+          
+          Write-Host "Menginstal Tailscale (Silent Install)..."
+          Start-Process -FilePath ".\tailscale-setup.exe" -ArgumentList "/quiet" -Wait -NoNewWindow
+          
+          Write-Host "Login ke jaringan Tailscale..."
+          # Menjalankan CLI Tailscale menggunakan absolute path agar tidak error
+          & "C:\Program Files\Tailscale\tailscale.exe" up --authkey="${{ secrets.TAILSCALE_AUTH_KEY }}" --hostname="github-windows-rdp"
 
       - name: Konfigurasi RDP & Firewall
         run: |
@@ -23,7 +29,7 @@ jobs:
           
       - name: Dapatkan IP Tailscale
         run: |
-          $TailscaleIP = tailscale ip -4
+          $TailscaleIP = & "C:\Program Files\Tailscale\tailscale.exe" ip -4
           Write-Host "=================================================="
           Write-Host "RDP Siap Digunakan!"
           Write-Host "IP Address : $TailscaleIP"
