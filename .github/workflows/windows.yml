@@ -20,12 +20,16 @@ jobs:
           & "C:\Program Files\Tailscale\tailscale.exe" up --authkey="${{ secrets.TAILSCALE_AUTH_KEY }}" --hostname="github-windows-rdp"
 
       - name: Konfigurasi RDP & Firewall
+        env:
+          RDP_PASS: ${{ secrets.RDP_PASSWORD }}
         run: |
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" -Value 0
           Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
           Set-Service -Name TermService -StartupType Automatic
           Start-Service TermService
-          net user runneradmin "${{ secrets.RDP_PASSWORD }}"
+          
+          # Menggunakan variable env bawaan PowerShell untuk membaca secret
+          net user runneradmin "$env:RDP_PASS"
           
       - name: Dapatkan IP Tailscale
         run: |
